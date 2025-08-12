@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>브랜드 최초상기도 분석 (정리본, 추가응답=2회이상)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,.95); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.1); overflow: hidden; }
+    .header { background: linear-gradient(135deg,#2c3e50,#3498db); color: #fff; padding: 30px; text-align: center; }
+    .header h1 { font-size: 2.5em; margin-bottom: 10px; font-weight: 300; }
+    .header p { opacity: .9; font-size: 1.1em; }
+    .content { padding: 40px; }
+    .upload-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+    .upload-card { background: #fff; border-radius: 15px; padding: 30px; box-shadow: 0 5px 20px rgba(0,0,0,.08); border: 2px dashed #e0e0e0; transition: all .3s ease; }
+    .upload-card:hover { border-color: #3498db; transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+    .upload-card h3 { color: #2c3e50; margin-bottom: 15px; font-size: 1.4em; display: flex; align-items: center; gap: 10px; }
+    .file-input { width: 100%; padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; transition: border-color .3s ease; }
+    .file-input:focus { outline: none; border-color: #3498db; }
+    .keyword-builder { background: #f8f9fa; border-radius: 15px; padding: 25px; max-height: 400px; overflow-y: auto; }
+    .brand-row { display: grid; grid-template-columns: 180px 1fr 80px; gap: 10px; align-items: center; margin-bottom: 12px; padding: 12px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+    .brand-input,.keywords-input { padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 13px; }
+    .brand-input { font-weight: 600; color: #2c3e50; }
+    .brand-input:focus,.keywords-input:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 2px rgba(52,152,219,.1); }
+    .remove-btn { padding: 6px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; transition: all .3s ease; }
+    .remove-btn:hover { background: #c0392b; }
+    .add-btn { width: 100%; padding: 12px; background: linear-gradient(135deg,#27ae60,#2ecc71); color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin-bottom: 15px; transition: all .3s ease; }
+    .add-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(46,204,113,.3); }
+    .help-text { color: #7f8c8d; font-size: 12px; margin-top: 10px; font-style: italic; }
+    .analyze-btn { width: 100%; padding: 18px; background: linear-gradient(135deg,#27ae60,#2ecc71); color: #fff; border: none; border-radius: 10px; font-size: 1.2em; font-weight: 600; cursor: pointer; margin: 30px 0; transition: all .3s ease; text-transform: uppercase; letter-spacing: 1px; }
+    .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(46,204,113,.4); }
+    .analyze-btn:disabled { background: #bdc3c7; cursor: not-allowed; transform: none; box-shadow: none; }
+    .loading { text-align: center; padding: 40px; display: none; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+    .results { display: none; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 25px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,.08); transition: transform .3s ease; }
+    .stat-card:hover { transform: translateY(-3px); }
+    .stat-number { font-size: 2.5em; font-weight: bold; color: #3498db; margin-bottom: 10px; }
+    .stat-label { color: #7f8c8d; font-size: .9em; text-transform: uppercase; letter-spacing: 1px; }
+    .chart-container { background: #fff; border-radius: 15px; padding: 30px; margin-bottom: 30px; box-shadow: 0 5px 20px rgba(0,0,0,.08); }
+    .chart-title { font-size: 1.5em; color: #2c3e50; margin-bottom: 20px; text-align: center; }
+    .table-container { background: #fff; border-radius: 15px; padding: 30px; box-shadow: 0 5px 20px rgba(0,0,0,.08); overflow-x: auto; }
+    .results-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .results-table th,.results-table td { padding: 15px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+    .results-table th { background: linear-gradient(135deg,#f8f9fa,#e9ecef); font-weight: 600; color: #2c3e50; text-transform: uppercase; font-size: .85em; letter-spacing: 1px; }
+    .results-table tr:hover { background: #f8f9fa; }
+    .brand-name { font-weight: 600; color: #2c3e50; }
+    .frequency { font-weight: bold; color: #27ae60; }
+    .percentage { color: #e74c3c; font-weight: 500; }
+    .export-buttons { display: flex; gap: 15px; margin-top: 30px; justify-content: center; }
+    .export-btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all .3s ease; }
+    .export-excel { background: #27ae60; color: #fff; }
+    .export-csv { background: #3498db; color: #fff; }
+    .export-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,.2); }
+    @media (max-width: 768px){ .upload-section{grid-template-columns:1fr} .stats-grid{grid-template-columns:repeat(2,1fr)} .content{padding:20px} .header h1{font-size:2em} .brand-row{grid-template-columns:1fr;gap:8px} .remove-btn{justify-self:end;width:60px} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>브랜드 최초상기도 분석</h1>
+      <p>Excel 파일과 브랜드 키워드를 설정하여 브랜드 인지도를 분석하세요</p>
+    </div>
+
+    <div class="content">
+      <div class="upload-section">
+        <div class="upload-card">
+          <h3>📊 Excel 데이터 파일</h3>
+          <input type="file" id="excelFile" class="file-input" accept=".xlsx,.xls" />
+          <p class="help-text">응답 데이터가 포함된 Excel 파일을 업로드하세요</p>
+
+          <!-- 컬럼 선택 영역 -->
+          <div id="columnSelection" style="display:none;margin-top:20px;">
+            <label style="display:block;margin-bottom:10px;font-weight:600;color:#2c3e50;">📋 분석할 컬럼을 선택하세요:</label>
+            <select id="columnSelect" class="file-input" style="padding:12px;">
+              <option value="">컬럼을 선택하세요...</option>
+            </select>
+            <div id="dataPreview" style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:8px;max-height:200px;overflow-y:auto;display:none;">
+              <div style="font-weight:600;margin-bottom:10px;color:#2c3e50;">📊 데이터 미리보기 (첫 5개 행):</div>
+              <div id="previewContent" style="font-size:13px;line-height:1.4;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="upload-card">
+          <h3>🏷️ 브랜드 키워드 설정</h3>
+          <div class="keyword-builder">
+            <div id="brandRows">
+              <div class="brand-row">
+                <input type="text" class="brand-input" placeholder="브랜드명" />
+                <input type="text" class="keywords-input" placeholder="키워드1, 키워드2, ..." />
+                <button class="remove-btn" data-action="remove">삭제</button>
+              </div>
+            </div>
+            <button class="add-btn" id="addBrandBtn">+ 브랜드 추가</button>
+            <p class="help-text">💡 브랜드명은 자동으로 키워드에 포함됩니다. 추가 키워드는 쉼표(,)로 구분하세요.</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="analyzeBtn" class="analyze-btn">분석 시작하기</button>
+
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>데이터를 분석 중입니다...</p>
+      </div>
+
+      <div id="results" class="results">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-number" id="totalResponses">0</div>
+            <div class="stat-label">총 응답수</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="brandResponses">0</div>
+            <div class="stat-label">브랜드 응답</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="additionalResponses">0</div>
+            <div class="stat-label">추가 응답 (2회 이상)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="otherResponses">0</div>
+            <div class="stat-label">기타</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="unknownResponses">0</div>
+            <div class="stat-label">모름/없음</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="invalidResponses">0</div>
+            <div class="stat-label">불성실 응답</div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <h3 class="chart-title">브랜드별 응답 분포</h3>
+          <canvas id="brandChart"></canvas>
+        </div>
+
+        <div class="table-container">
+          <h3 class="chart-title">상세 분석 결과</h3>
+          <table class="results-table" id="resultsTable">
+            <thead>
+              <tr>
+                <th>순위</th>
+                <th>브랜드</th>
+                <th>빈도</th>
+                <th>비율</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+
+          <!-- 추가 응답 상세 내역 (2번 이상 등장) -->
+          <div id="additionalResponsesSection" style="display:none;margin-top:30px;">
+            <h3 class="chart-title">추가 응답 상세 내역</h3>
+            <div style="background:#f8f9fa;border-radius:10px;padding:20px;margin-bottom:20px;">
+              <p style="color:#6c757d;margin-bottom:15px;">💡 브랜드로 분류되지 않았지만 <strong>2번 이상 등장</strong>한 응답들입니다. 새로운 브랜드로 추가하거나 기존 브랜드의 키워드로 포함시킬 수 있습니다.</p>
+            </div>
+            <table class="results-table" id="additionalResponsesTable">
+              <thead>
+                <tr>
+                  <th>응답 내용</th>
+                  <th>등장 횟수</th>
+                  <th>비율</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="export-buttons">
+            <button class="export-btn export-excel" id="exportExcelBtn">Excel로 내보내기</button>
+            <button class="export-btn export-csv" id="exportCsvBtn">CSV로 내보내기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // 전역 상태
+    // =========================
+    let analysisResults = null;
+    let chartInstance = null;
+    let excelData = null;
+    let selectedColumn = null;
+
+    // =========================
+    // UI 유틸
+    // =========================
+    function addBrandRow(){
+      const container = document.getElementById('brandRows');
+      const newRow = document.createElement('div');
+      newRow.className = 'brand-row';
+      newRow.innerHTML = `
+        <input type="text" class="brand-input" placeholder="브랜드명" />
+        <input type="text" class="keywords-input" placeholder="추가 키워드 (선택사항)" />
+        <button class="remove-btn" data-action="remove">삭제</button>
+      `;
+      container.appendChild(newRow);
+      newRow.querySelector('.brand-input').focus();
+    }
+
+    function removeBrandRow(button){
+      const container = document.getElementById('brandRows');
+      if(container.children.length>1){ button.closest('.brand-row').remove(); }
+      else { alert('최소 하나의 브랜드는 필요합니다.'); }
+    }
+
+    // 브랜드 그룹 수집 (브랜드명을 기본 키워드로 포함)
+    function getBrandGroups(){
+      const rows = document.querySelectorAll('.brand-row');
+      const brandGroups = {};
+      rows.forEach(row=>{
+        const brand = row.querySelector('.brand-input').value.trim();
+        const add = row.querySelector('.keywords-input').value.trim();
+        if(!brand) return;
+        const keywords = [brand].concat(add? add.split(',').map(k=>k.trim()).filter(Boolean) : []);
+        brandGroups[brand] = keywords;
+      });
+      return brandGroups;
+    }
+
+    // =========================
+    // 파일 읽기 + 컬럼 선택
+    // =========================
+    function readExcelFileWithColumns(file){
+      return new Promise((resolve,reject)=>{
+        const reader = new FileReader();
+        reader.onload = (e)=>{
+          try{
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data,{ type:'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            if(jsonData.length===0){ reject(new Error('Excel 파일이 비어있습니다.')); return; }
+            const columns = Object.keys(jsonData[0]);
+            const sampleData = jsonData.slice(0,5);
+            resolve({ columns, sampleData, fullData: jsonData });
+          }catch(err){ reject(err); }
+        };
+        reader.onerror = ()=>reject(new Error('파일 읽기에 실패했습니다.'));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function showColumnSelection(columns,sampleData){
+      const columnSelection = document.getElementById('columnSelection');
+      const columnSelect = document.getElementById('columnSelect');
+      columnSelect.innerHTML = '<option value="">컬럼을 선택하세요...</option>';
+
+      const priority = columns.filter(col=> col.toLowerCase().includes('최초상기'));
+      if(priority.length){
+        const og = document.createElement('optgroup');
+        og.label = '🎯 추천 컬럼';
+        priority.forEach(col=>{ const o=document.createElement('option'); o.value=col; o.textContent=`${col} (추천)`; og.appendChild(o); });
+        columnSelect.appendChild(og);
+      }
+      const others = columns.filter(col=> !col.toLowerCase().includes('최초상기'));
+      if(others.length){
+        const og = document.createElement('optgroup');
+        og.label = '📋 전체 컬럼';
+        others.forEach(col=>{ const o=document.createElement('option'); o.value=col; o.textContent=col; og.appendChild(o); });
+        columnSelect.appendChild(og);
+      }
+
+      columnSelect.onchange = function(){
+        selectedColumn = this.value;
+        if(selectedColumn){ showDataPreview(selectedColumn,sampleData); }
+        else { document.getElementById('dataPreview').style.display='none'; }
+      };
+
+      if(priority.length){
+        columnSelect.value = priority[0];
+        selectedColumn = priority[0];
+        showDataPreview(selectedColumn,sampleData);
+      }
+      columnSelection.style.display = 'block';
+    }
+
+    function showDataPreview(columnName,sampleData){
+      const dataPreview = document.getElementById('dataPreview');
+      const previewContent = document.getElementById('previewContent');
+      let html = `<strong>컬럼: ${columnName}</strong><br><br>`;
+      sampleData.forEach((row,i)=>{ const v = row[columnName] || '(빈 값)'; html += `${i+1}. ${v}<br>`; });
+      previewContent.innerHTML = html;
+      dataPreview.style.display = 'block';
+    }
+
+    async function handleFileUpload(){
+      const file = document.getElementById('excelFile').files[0];
+      if(!file) return;
+      try{
+        const data = await readExcelFileWithColumns(file);
+        excelData = data;
+        showColumnSelection(data.columns, data.sampleData);
+      }catch(err){
+        console.error(err); alert('파일 읽기 중 오류가 발생했습니다: '+err.message);
+      }
+    }
+
+    // =========================
+    // 텍스트 분석기
+    // =========================
+    class TextAnalyzer{
+      constructor(brandGroups){
+        this.brandGroups = brandGroups;
+        this.unknownPatterns = [
+          '모르','몰라','모름','모릅','모른','모르겠','모룸','없','없음','없습','글쎄','애매','그냥','무','뭐지','처음 들어','어려움','어렵','이게 뭐','이게뭔가','생각 안','생각않','기억 안','기억않','생각이 안','기억이 안'
+        ];
+        this.basicResponses = new Set(['네','아니오','좋아요','좋습니다','기타','브랜드','감사합니다','호']);
+        this.responseCount = {};
+      }
+      normalizeText(text){
+        if(!text || typeof text!=='string') return '';
+        text = text.toLowerCase().trim();
+        text = text.replace(/\s+/g,' ');
+        text = text.replace(/([가-힣])\s+([가-힣])|([a-z0-9])\s+([a-z0-9])/g,'$1$2$3$4');
+        return text.replace(/[^a-z0-9가-힣]/g,'');
+      }
+      calculateSimilarity(a,b){
+        a=this.normalizeText(a); b=this.normalizeText(b);
+        let matches=0; const total=Math.max(a.length,b.length);
+        for(let i=0;i<Math.min(a.length,b.length);i++){ if(a[i]===b[i]) matches++; }
+        return total>0? matches/total : 0;
+      }
+      matchBrandExact(text){
+        const n = this.normalizeText(text);
+        for(const [brand,aliases] of Object.entries(this.brandGroups)){
+          for(const alias of aliases){ if(n.includes(this.normalizeText(alias))) return brand; }
+        }
+        return null;
+      }
+      matchBrandSimilar(text){
+        let best=null, score=0.8; // 간단 기준
+        for(const [brand,aliases] of Object.entries(this.brandGroups)){
+          for(const alias of aliases){
+            const s = this.calculateSimilarity(text, alias);
+            if(s>score){ score=s; best=brand; }
+          }
+        }
+        return best;
+      }
+      isUnknownResponse(text){
+        const n = this.normalizeText(text);
+        if(['x','?','no','nothing',''].includes(n)) return true;
+        return this.unknownPatterns.some(p=> n.includes(p));
+      }
+      checkInvalidResponse(text){
+        if(text.length<=1) return '한 글자 응답';
+        if(this.basicResponses.has(text)) return '기본 응답';
+        const charCounts={};
+        for(const ch of text){ charCounts[ch]=(charCounts[ch]||0)+1; if(charCounts[ch]>=3) return '비정상적인 패턴'; }
+        return null;
+      }
+      analyzeResponse(response){
+        const n = this.normalizeText(response);
+        this.responseCount[n] = (this.responseCount[n]||0)+1;
+        const exact = this.matchBrandExact(n); if(exact) return [exact,''];
+        const similar = this.matchBrandSimilar(response); if(similar) return [similar,''];
+        if(this.isUnknownResponse(n)) return ['모름/없음',''];
+        const invalid = this.checkInvalidResponse(n); if(invalid) return ['불성실응답', invalid];
+        // ⬇️ 규칙 변경: 동일 응답이 2회 이상일 때만 '추가응답', 1회는 '기타'
+        if(this.responseCount[n] >= 2) return ['추가응답',''];
+        return ['기타',''];
+      }
+    }
+
+    function analyzeResponses(responses, analyzer){
+      const results=[]; const brandCounts={};
+      let unknownCount=0, invalidCount=0, additionalCount=0, otherCount=0;
+      const firstCategoryByNorm = {}; // 첫 분류 기록
+
+      for(const r of responses){
+        const [cat, reason] = analyzer.analyzeResponse(r);
+        const norm = analyzer.normalizeText(r);
+        results.push({ 원응답:r, 분류결과:cat, 분류사유:reason });
+        if(!(norm in firstCategoryByNorm)) firstCategoryByNorm[norm] = cat;
+
+        if(Object.keys(analyzer.brandGroups).includes(cat)){
+          brandCounts[cat]=(brandCounts[cat]||0)+1;
+        }else if(cat==='모름/없음'){
+          unknownCount++;
+        }else if(cat==='불성실응답'){
+          invalidCount++;
+        }else if(cat==='추가응답'){
+          // 개별 건수(두 번째 등장부터) 카운트
+          additionalCount++;
+        }else{ // 기타
+          otherCount++;
+        }
+      }
+
+      // ✔ 추가응답 리스트: 2회 이상 등장한 응답만 수집
+      //   - 브랜드/모름/불성실 분류는 제외
+      //   - 표에는 전체 등장 횟수를 표기
+      const additionalResponses = {};
+      for(const [norm, cnt] of Object.entries(analyzer.responseCount)){
+        if(cnt >= 2){
+          const firstCat = firstCategoryByNorm[norm] || '기타';
+          const isBrand = Object.keys(analyzer.brandGroups).includes(firstCat);
+          const isSpecial = (firstCat==='모름/없음' || firstCat==='불성실응답');
+          if(!isBrand && !isSpecial){
+            const example = (results.find(x=> analyzer.normalizeText(x.원응답)===norm) || {}).원응답 || norm;
+            additionalResponses[norm] = { response: example, count: cnt };
+          }
+        }
+      }
+
+      return { results, brandCounts, additionalResponses, unknownCount, invalidCount, additionalCount, otherCount, totalResponses: responses.length };
+    }
+
+    // =========================
+    // 표시/그리기
+    // =========================
+    function displayResults(analysisData, brandGroups, columnInfo){
+      const { brandCounts, unknownCount, invalidCount, additionalCount, otherCount, totalResponses } = analysisData;
+      document.getElementById('totalResponses').textContent = totalResponses.toLocaleString();
+      document.getElementById('brandResponses').textContent = Object.values(brandCounts).reduce((a,b)=>a+b,0).toLocaleString();
+      document.getElementById('additionalResponses').textContent = additionalCount.toLocaleString();
+      document.getElementById('otherResponses').textContent = otherCount.toLocaleString();
+      document.getElementById('unknownResponses').textContent = unknownCount.toLocaleString();
+      document.getElementById('invalidResponses').textContent = invalidCount.toLocaleString();
+      createChart(brandCounts);
+      createResultsTable(brandCounts, brandGroups, totalResponses, unknownCount, invalidCount, additionalCount, otherCount, columnInfo);
+      createAdditionalResponsesTable(analysisData.additionalResponses, totalResponses);
+      document.getElementById('results').style.display = 'block';
+    }
+
+    function createChart(brandCounts){
+      const ctx = document.getElementById('brandChart').getContext('2d');
+      if(chartInstance) chartInstance.destroy();
+      const sorted = Object.entries(brandCounts).sort(([,a],[,b])=> b-a).slice(0,10);
+      const labels = sorted.map(([b])=>b); const data = sorted.map(([,c])=>c);
+      const colors = ['#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF','#FF9F40','#C9CBCF','#8BC34A','#03A9F4','#F06292'];
+      chartInstance = new Chart(ctx,{
+        type:'bar',
+        data:{ labels, datasets:[{ label:'응답 수', data, backgroundColor: colors.slice(0,data.length), borderColor: colors.slice(0,data.length).map(c=>c+'80'), borderWidth:2 }] },
+        options:{ responsive:true, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } }, plugins:{ legend:{ display:false } } }
+      });
+    }
+
+    function createResultsTable(brandCounts, brandGroups, totalResponses, unknownCount, invalidCount, additionalCount, otherCount, columnInfo){
+      const tableContainer = document.querySelector('.table-container');
+      let infoHtml='';
+      if(columnInfo.source==='selected'){
+        infoHtml = `<div style="background:#d1ecf1;border:1px solid #bee5eb;border-radius:8px;padding:15px;margin-bottom:20px;"><div style="color:#0c5460;font-weight:600;margin-bottom:5px;">📋 분석 컬럼 정보</div><div style="color:#0c5460;font-size:14px;">사용자가 선택한 <strong>"${columnInfo.column}"</strong> 컬럼을 분석했습니다.</div></div>`;
+      }else if(columnInfo.source==='topPriority'){
+        infoHtml = `<div style="background:#d4edda;border:1px solid #c3e6cb;border-radius:8px;padding:15px;margin-bottom:20px;"><div style="color:#155724;font-weight:600;margin-bottom:5px;">📋 분석 컬럼 정보</div><div style="color:#155724;font-size:14px;"><strong>"${columnInfo.column}"</strong> 컬럼을 분석했습니다.</div></div>`;
+      }else{
+        infoHtml = `<div style="background:#fff3cd;border:1px solid #ffeaa7;border-radius:8px;padding:15px;margin-bottom:20px;"><div style="color:#856404;font-weight:600;margin-bottom:5px;">📋 분석 컬럼 정보</div><div style="color:#856404;font-size:14px;">'최초상기' 컬럼을 찾지 못해 <strong>"${columnInfo.column}"</strong> 컬럼을 분석했습니다.</div></div>`;
+      }
+
+      const tbody = document.querySelector('#resultsTable tbody');
+      tbody.innerHTML='';
+      const sorted = Object.entries(brandCounts).sort(([,a],[,b])=> b-a);
+      Object.keys(brandGroups).forEach(brand=>{ if(!brandCounts[brand]) sorted.push([brand,0]); });
+      sorted.forEach(([brand,count],i)=>{
+        const tr=document.createElement('tr');
+        const pct = totalResponses>0? (count/totalResponses*100).toFixed(1) : '0.0';
+        tr.innerHTML = `<td>${i+1}</td><td class="brand-name">${brand}</td><td class="frequency">${count.toLocaleString()}</td><td class="percentage">${pct}%</td>`;
+        tbody.appendChild(tr);
+      });
+      const others = [ {name:'모름/없음',count:unknownCount}, {name:'추가응답',count:additionalCount}, {name:'불성실응답',count:invalidCount}, {name:'기타',count:otherCount} ];
+      others.forEach(({name,count})=>{
+        if(count>0){ const tr=document.createElement('tr'); const pct = totalResponses>0? (count/totalResponses*100).toFixed(1) : '0.0'; tr.style.backgroundColor='#f8f9fa'; tr.innerHTML=`<td>-</td><td class="brand-name" style="color:#6c757d;">${name}</td><td class="frequency" style="color:#6c757d;">${count.toLocaleString()}</td><td class="percentage" style="color:#6c757d;">${pct}%</td>`; tbody.appendChild(tr); }
+      });
+
+      const existing = tableContainer.querySelector('.column-info'); if(existing) existing.remove();
+      const div = document.createElement('div'); div.className='column-info'; div.innerHTML = infoHtml; const title = tableContainer.querySelector('.chart-title'); title.insertAdjacentElement('afterend', div);
+    }
+
+    function createAdditionalResponsesTable(additionalResponses,totalResponses){
+      const section = document.getElementById('additionalResponsesSection');
+      const tbody = document.querySelector('#additionalResponsesTable tbody');
+      if(Object.keys(additionalResponses).length===0){ section.style.display='none'; return; }
+      tbody.innerHTML='';
+      const sorted = Object.entries(additionalResponses).sort(([,a],[,b])=> b.count-a.count);
+      sorted.forEach(([key,data])=>{
+        const tr=document.createElement('tr');
+        const pct = totalResponses>0? (data.count/totalResponses*100).toFixed(1) : '0.0';
+        tr.innerHTML = `<td style="font-weight:500;color:#2c3e50;">${data.response}</td><td style="text-align:center;font-weight:bold;color:#e67e22;">${data.count.toLocaleString()}</td><td style="text-align:center;color:#e74c3c;">${pct}%</td>`;
+        tbody.appendChild(tr);
+      });
+      section.style.display='block';
+    }
+
+    // =========================
+    // 내보내기
+    // =========================
+    function exportToExcel(){
+      if(!analysisResults){ alert('분석 결과가 없습니다. 먼저 분석을 실행해주세요.'); return; }
+      try{
+        const wb = XLSX.utils.book_new();
+        // 1) 브랜드별 결과
+        const brandData = [['순위','브랜드','빈도','비율']];
+        const { brandCounts, totalResponses } = analysisResults;
+        const sorted = Object.entries(brandCounts).sort(([,a],[,b])=> b-a);
+        sorted.forEach(([brand,count],i)=>{ brandData.push([i+1, brand, count, ((count/totalResponses)*100).toFixed(1)+'%']); });
+        const other = [ ['모름/없음', analysisResults.unknownCount], ['추가응답', analysisResults.additionalCount], ['불성실응답', analysisResults.invalidCount], ['기타', analysisResults.otherCount] ];
+        other.forEach(([name,count])=>{ if(count>0) brandData.push(['-', name, count, ((count/totalResponses)*100).toFixed(1)+'%']); });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(brandData), '브랜드별 결과');
+        // 2) 상세 분석 과정
+        const detail = [['원응답','분류결과','분류사유']];
+        analysisResults.results.forEach(r=> detail.push([r.원응답, r.분류결과, r.분류사유]) );
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), '상세 분석 과정');
+        // 3) 추가 응답 상세
+        if(analysisResults.additionalResponses && Object.keys(analysisResults.additionalResponses).length){
+          const add = [['응답 내용','등장 횟수','비율']];
+          const sortedAdd = Object.entries(analysisResults.additionalResponses).sort(([,a],[,b])=> b.count-a.count);
+          sortedAdd.forEach(([k,d])=> add.push([d.response, d.count, ((d.count/totalResponses)*100).toFixed(1)+'%']) );
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(add), '추가 응답 상세');
+        }
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `브랜드_분석_결과_${today}.xlsx`);
+      }catch(err){ console.error(err); alert('Excel 내보내기 중 오류: '+err.message); }
+    }
+
+    function exportToCSV(){
+      if(!analysisResults){ alert('분석 결과가 없습니다. 먼저 분석을 실행해주세요.'); return; }
+      try{
+        let csv='';
+        csv += '브랜드별 결과\n';
+        csv += '순위,브랜드,빈도,비율\n';
+        const { brandCounts, totalResponses } = analysisResults;
+        const sorted = Object.entries(brandCounts).sort(([,a],[,b])=> b-a);
+        sorted.forEach(([brand,count],i)=>{ csv += `${i+1},"${brand}",${count},"${((count/totalResponses)*100).toFixed(1)}%"\n`; });
+        [['모름/없음',analysisResults.unknownCount],['추가응답',analysisResults.additionalCount],['불성실응답',analysisResults.invalidCount],['기타',analysisResults.otherCount]].forEach(([name,count])=>{ if(count>0) csv += `-,"${name}",${count},"${((count/totalResponses)*100).toFixed(1)}%"\n`; });
+        csv += '\n상세 분석 과정\n';
+        csv += '원응답,분류결과,분류사유\n';
+        analysisResults.results.forEach(r=>{ csv += `"${r.원응답}","${r.분류결과}","${r.분류사유}"\n`; });
+        if(analysisResults.additionalResponses && Object.keys(analysisResults.additionalResponses).length){
+          csv += '\n추가 응답 상세 내역\n';
+          csv += '응답 내용,등장 횟수,비율\n';
+          const sortedAdd = Object.entries(analysisResults.additionalResponses).sort(([,a],[,b])=> b.count-a.count);
+          sortedAdd.forEach(([k,d])=>{ csv += `"${d.response}",${d.count},"${((d.count/totalResponses)*100).toFixed(1)}%"\n`; });
+        }
+        const blob = new Blob(['\uFEFF'+csv],{ type:'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob); link.setAttribute('href',url);
+        const today = new Date().toISOString().split('T')[0];
+        link.setAttribute('download', `브랜드_분석_결과_${today}.csv`);
+        link.style.visibility='hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      }catch(err){ console.error(err); alert('CSV 내보내기 중 오류: '+err.message); }
+    }
+
+    // =========================
+    // 분석 실행
+    // =========================
+    async function analyzeData(){
+      if(!excelData || !selectedColumn){ alert('Excel 파일을 업로드하고 분석할 컬럼을 선택해주세요.'); return; }
+      const brandGroups = getBrandGroups();
+      if(Object.keys(brandGroups).length===0){ alert('최소 하나의 브랜드를 입력해주세요.'); return; }
+      document.getElementById('analyzeBtn').disabled=true;
+      document.getElementById('loading').style.display='block';
+      document.getElementById('results').style.display='none';
+      try{
+        const responses = excelData.fullData.map(row=> row[selectedColumn]).filter(r=> r && r.toString().trim());
+        if(responses.length===0) throw new Error('선택된 컬럼에 분석할 데이터가 없습니다.');
+        const analyzer = new TextAnalyzer(brandGroups);
+        const results = analyzeResponses(responses, analyzer);
+        const columnInfo = { column: selectedColumn, source: selectedColumn.toLowerCase().includes('최초상기')? 'topPriority' : 'selected' };
+        displayResults(results, brandGroups, columnInfo);
+        analysisResults = results;
+      }catch(err){ console.error(err); alert('분석 중 오류가 발생했습니다: '+err.message); }
+      finally{ document.getElementById('analyzeBtn').disabled=false; document.getElementById('loading').style.display='none'; }
+    }
+
+    // =========================
+    // 이벤트 바인딩
+    // =========================
+    document.addEventListener('DOMContentLoaded',()=>{
+      const fileInput = document.getElementById('excelFile'); if(fileInput) fileInput.addEventListener('change', handleFileUpload);
+      const analyzeBtn = document.getElementById('analyzeBtn'); if(analyzeBtn) analyzeBtn.addEventListener('click', analyzeData);
+      const addBrandBtn = document.getElementById('addBrandBtn'); if(addBrandBtn) addBrandBtn.addEventListener('click', addBrandRow);
+      const brandRows = document.getElementById('brandRows'); if(brandRows){ brandRows.addEventListener('click',(e)=>{ if(e.target.classList.contains('remove-btn')) removeBrandRow(e.target); }); }
+      const exportExcelBtn = document.getElementById('exportExcelBtn'); if(exportExcelBtn) exportExcelBtn.addEventListener('click', exportToExcel);
+      const exportCsvBtn = document.getElementById('exportCsvBtn'); if(exportCsvBtn) exportCsvBtn.addEventListener('click', exportToCSV);
+    });
+  </script>
+</body>
+</html>
